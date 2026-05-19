@@ -1,4 +1,4 @@
-# Web — Demo en GitHub Pages
+# Web 
 
 Sitio estático con el modelo U-Net ejecutándose **en el navegador** vía
 [`onnxruntime-web`](https://onnxruntime.ai/docs/tutorials/web/).
@@ -73,38 +73,8 @@ pnpm dev          # http://localhost:5173/geofire/
 ```
 
 > **Importante**: `vite.config.ts` debe tener `base: '/geofire/'` para que las
-> rutas funcionen tanto en GitHub Pages como en local. Si forkeás con otro
+> rutas funcionen tanto en GitHub Pages como en local.
 > nombre de repo, actualizá ese `base`.
 
-## Desplegar a GitHub Pages
 
-Hay un workflow listo en [`../.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)
-que:
 
-1. Se dispara en cada push a `main`
-2. Instala dependencias con pnpm
-3. Build: `pnpm build`
-4. Sube `web/dist/` a GitHub Pages
-
-**Una sola vez** en el repo: ir a *Settings → Pages → Source: GitHub Actions*.
-
-## Tamaño esperado del bundle
-
-- `model.onnx`: pocos MB (U-Net 32-base, 21 canales)
-- `srtm_neighbors.json`: ~50 KB (cientos de puntos × 6 features)
-- `scaler.json`: < 5 KB
-- `test_predictions.json`: ~varios MB (187 transiciones con GeoJSON)
-- `onnxruntime-web` WASM: ~10 MB (lazy-load)
-
-Todo bien dentro del límite de 1 GB de GitHub Pages.
-
-## TODO al migrar
-
-- [ ] Copiar `despliegue/frontend/geofire/` a `web/` (sin `server.ts` ni `node_modules`)
-- [ ] Reemplazar `services/api.ts` → llamadas a `inference/runtime.ts`
-- [ ] Implementar los seis módulos de `src/inference/`
-- [ ] Actualizar `vite.config.ts` con `base: '/geofire/'`
-- [ ] Limpiar `package.json`: quitar `express`, `http-proxy-middleware`, `tsx`, `esbuild` (solo eran para el dev server de AI Studio)
-- [ ] Quitar el `GEMINI_API_KEY` (no se usa para inferencia)
-- [ ] Copiar artefactos de `model/artifacts/` a `web/public/model/`
-- [ ] Probar `pnpm build && pnpm preview` antes de pushear
