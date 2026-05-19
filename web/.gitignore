@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.vite/
+*.log
+.env
+.env.local
+
+# Modelo grande — generar antes del build con model/scripts/export_onnx.py
+# (descomentar si decidís NO versionar y bajar en CI)
+# public/model/*.onnx
+# public/model/srtm_neighbors.json

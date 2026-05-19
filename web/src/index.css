@@ -1,0 +1,72 @@
+/* External @import statements must come BEFORE @import "tailwindcss" so the
+   browser's "imports first" rule is satisfied (Tailwind v4 inlines everything
+   it brings in, which would otherwise push this declaration past valid). */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-ash-900: #07060a;
+  --color-ash-800: #1a1817;
+  --color-ash-700: #26221f;
+  --color-ash-600: #3d3a37;
+  
+  --color-ember-900: #5a1d0a;
+  --color-ember-800: #b83a0a;
+  --color-ember-700: #f96e1c;
+  --color-ember-600: #ff8a32;
+  --color-ember-500: #ffd199;
+
+  --color-forest-900: #0a1a12;
+  --color-forest-800: #1f4732;
+  --color-forest-700: #3f8460;
+
+  --color-ui-text: #f5f1ea;
+
+  --font-display: "Cormorant Garamond", serif;
+  --font-sans: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+@layer base {
+  body {
+    @apply bg-ash-900 text-ui-text font-sans antialiased selection:bg-ember-600 selection:text-black;
+  }
+  
+  h1, h2, h3 {
+    @apply font-display;
+  }
+}
+
+.cinematic-shadow {
+  box-shadow: 0 0 40px rgba(255, 138, 50, 0.15);
+}
+
+.glass-panel {
+  @apply bg-[#26221f]/40 backdrop-blur-md border border-[#f5f1ea]/10;
+}
+
+.glass-panel-deep {
+  @apply bg-black/40 backdrop-blur-xl border border-[#f5f1ea]/10;
+}
+
+.mask-edge-fade {
+  mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-ash-900;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-ash-600 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-ash-700;
+}
+
+/* Custom curso styling would go here if needed */

@@ -1,0 +1,30 @@
+{
+  "val": {
+    "split": "val",
+    "mask_iou": 0.5686660516423807,
+    "mask_dice": 0.688265141617994,
+    "poly_iou": 0.5128800141743282,
+    "poly_dice": 0.6376950697753275,
+    "area_err_ha": 31.826639298612424,
+    "centroid_disp_m": 60.73147107539438,
+    "perim_err_m": 1020.7419658699553,
+    "pct_nonempty_pred_geom": 1.0,
+    "n_valid": 159,
+    "n_total": 159,
+    "n_invalid_true": 0
+  },
+  "test": {
+    "split": "test",
+    "mask_iou": 0.5272690035615314,
+    "mask_dice": 0.6466981582615401,
+    "poly_iou": 0.47738877379265343,
+    "poly_dice": 0.6026689022173742,
+    "area_err_ha": 48.72782913827833,
+    "centroid_disp_m": 89.19076706831306,
+    "perim_err_m": 1807.1374981827905,
+    "pct_nonempty_pred_geom": 1.0,
+    "n_valid": 187,
+    "n_total": 187,
+    "n_invalid_true": 0
+  }
+}

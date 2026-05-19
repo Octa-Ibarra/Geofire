@@ -1,0 +1,39 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+.env.local
+.ipynb_checkpoints/
+
+# --- Node / Vite ---
+node_modules/
+dist/
+.vite/
+*.log
+.DS_Store
+
+# --- Datos crudos / pesados (NO versionar) ---
+# Se documentan con scripts de descarga, no se suben al repo.
+DATASET_COMPLETO/
+DATASET_PROCESADO/
+*.zip
+*.tif
+*.tiff
+*.nc
+*.grib
+*.h5
+
+# --- Parquet grandes: descomentar si pasás los 100 MB y necesitás LFS ---
+# model/artifacts/*.parquet
+
+# --- Outputs intermedios ---
+*.tmp
+*.bak
+
+# --- OS / IDE ---
+.vscode/
+.idea/
+Thumbs.db
