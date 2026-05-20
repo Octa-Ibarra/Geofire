@@ -45,7 +45,10 @@ jobs:
           test -f public/model/srtm_neighbors.json || (echo "::error::Missing public/model/srtm_neighbors.json" && exit 1)
           test -f public/model/margin.json       || (echo "::error::Missing public/model/margin.json" && exit 1)
 
+      # base path = nombre real del repo (case-sensitive en Pages), p.ej. /Geofire/
       - run: pnpm build
+        env:
+          VITE_BASE: /${{ github.event.repository.name }}/
 
       - uses: actions/upload-pages-artifact@v3
         with:
