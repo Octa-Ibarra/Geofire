@@ -63,7 +63,7 @@ export function HeroScene() {
         <motion.div style={{ opacity: sceneOpacity }} className="absolute inset-0 z-0 bg-black overflow-hidden">
           <motion.video
             ref={videoRef}
-            src="/incendio-360.mp4"
+            src={`${import.meta.env.BASE_URL}incendio-360.mp4`}
             autoPlay
             muted
             loop

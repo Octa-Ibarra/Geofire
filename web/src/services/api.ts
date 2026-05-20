@@ -1,3 +1,12 @@
+// Antes llamaba a un backend FastAPI (/api/...). Ahora todo corre en el
+// navegador: los escenarios son constantes, las métricas y la galería se leen
+// de JSON estáticos en public/model/, y la predicción usa onnxruntime-web.
+import { SCENARIOS as PRESETS } from "../inference/scenarios";
+import { predict as runPredict } from "../inference/runtime";
+
+const BASE = import.meta.env.BASE_URL;
+const MODEL_DIR = `${BASE}model/`;
+
 export interface Scenario {
   id: string;
   label: { es: string; en: string };
@@ -40,7 +49,7 @@ export interface PredictionItem {
 }
 
 export interface PredictionResponse {
-  prediction: GeoJSON.Polygon | null;
+  prediction: GeoJSON.Polygon | GeoJSON.MultiPolygon | null;
   confidence: number;
   input_centroid: { lon: number; lat: number };
   input_area_ha: number;
@@ -48,35 +57,60 @@ export interface PredictionResponse {
   message?: string;
 }
 
-const API_BASE = "/api";
+interface RawMetrics {
+  test: Record<string, number>;
+  val: Record<string, number>;
+}
+
+let _predsCache: PredictionItem[] | null = null;
+async function loadPredictions(): Promise<PredictionItem[]> {
+  if (!_predsCache) {
+    const res = await fetch(`${MODEL_DIR}test_predictions.json`);
+    _predsCache = (await res.json()) as PredictionItem[];
+  }
+  return _predsCache;
+}
 
 export const api = {
-  getHealth: async () => {
-    const res = await fetch(`${API_BASE}/health`);
-    return res.json();
-  },
-  getScenarios: async (): Promise<Scenario[]> => {
-    const res = await fetch(`${API_BASE}/scenarios`);
-    return res.json();
-  },
+  getScenarios: async (): Promise<Scenario[]> =>
+    PRESETS.map((s) => ({ id: s.id, label: s.label, description: s.description })),
+
   getMetrics: async (): Promise<Metrics> => {
-    const res = await fetch(`${API_BASE}/metrics`);
-    return res.json();
+    const [raw, preds] = await Promise.all([
+      fetch(`${MODEL_DIR}unet_metrics.json`).then((r) => r.json() as Promise<RawMetrics>),
+      loadPredictions(),
+    ]);
+    const pct = preds.length
+      ? preds.filter((p) => p.metrics.iou > 0.5).length / preds.length
+      : 0;
+    return {
+      test: {
+        mask_iou: raw.test.mask_iou,
+        poly_iou: raw.test.poly_iou,
+        centroid_disp_m: raw.test.centroid_disp_m,
+        area_err_ha: raw.test.area_err_ha,
+        perim_err_m: raw.test.perim_err_m,
+        pct_iou_gt_0_5: pct,
+        n: raw.test.n_total,
+      },
+      val: {
+        mask_iou: raw.val.mask_iou,
+        poly_iou: raw.val.poly_iou,
+        n: raw.val.n_total,
+      },
+      tau_star: 0.5,
+    };
   },
-  getTestPredictions: async (limit = 60): Promise<{ items: PredictionItem[]; total: number }> => {
-    const res = await fetch(`${API_BASE}/test-predictions?limit=${limit}`);
-    return res.json();
+
+  getTestPredictions: async (
+    limit = 60
+  ): Promise<{ items: PredictionItem[]; total: number }> => {
+    const preds = await loadPredictions();
+    return { items: preds.slice(0, limit), total: preds.length };
   },
-  predict: async (polygon: GeoJSON.Polygon, scenarioId: string): Promise<PredictionResponse> => {
-    const res = await fetch(`${API_BASE}/predict`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ polygon, scenario_id: scenarioId }),
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || "Error predicting");
-    }
-    return res.json();
-  },
+
+  predict: async (
+    polygon: GeoJSON.Polygon,
+    scenarioId: string
+  ): Promise<PredictionResponse> => runPredict(polygon, scenarioId),
 };
