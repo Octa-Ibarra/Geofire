@@ -75,9 +75,4 @@ Ver `artifacts/unet_metrics.json`. Resumen (test split, 187 transiciones):
 - **IoU mediano**: 0.541
 - Umbral $\tau^\star$: 0.5 (seleccionado en val)
 
-## TODO al copiar archivos
 
-- [ ] Copiar `modelo_final.ipynb` a `notebooks/`
-- [ ] Copiar pesos y JSONs de `despliegue/backend/artifacts/` a `artifacts/`
-- [ ] Adaptar `precompute_predictions.py` de `despliegue/backend/scripts/`
-- [ ] Implementar `scripts/export_onnx.py` (ver stub provisto)
