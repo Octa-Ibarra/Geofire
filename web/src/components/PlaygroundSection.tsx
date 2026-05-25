@@ -5,6 +5,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
 import { api, Scenario, PredictionResponse } from "../services/api";
 import { useLanguage } from "../hooks/useLanguage";
+import { useLenis } from "../hooks/useLenis";
 import { motion, AnimatePresence } from "motion/react";
 import { Play, Trash2, Loader2, Info, Sparkles } from "lucide-react";
 import {
@@ -14,7 +15,6 @@ import {
   type ValidationCode,
 } from "../lib/polygonValidation";
 import { DRAW_THEME } from "../lib/drawTheme";
-import { EXAMPLE_FIRES } from "../constants/exampleFires";
 
 // LngLatBoundsLike — keep the user from panning past Uruguay so they don't
 // "get lost" zooming over the Atlantic. Tight box with a small buffer.
@@ -23,8 +23,16 @@ const URUGUAY_BOUNDS: [[number, number], [number, number]] = [
   [-52.5, -29.5],
 ];
 
+type RealExample = {
+  id: string;
+  label: string;
+  areaHa: number;
+  geometry: GeoJSON.Polygon;
+};
+
 export function PlaygroundSection() {
   const { t, lang } = useLanguage();
+  const lenis = useLenis();
 
   // Map + draw lifetimes are completely decoupled from the rest of the
   // component state — they're created exactly once on mount and reused.
@@ -54,6 +62,8 @@ export function PlaygroundSection() {
   // with on first paint and act as decoration on a country-wide view.
   const [showExamples, setShowExamples] = useState(true);
   const [pickedExampleIds, setPickedExampleIds] = useState<Set<string>>(new Set());
+  const [examples, setExamples] = useState<RealExample[]>([]);
+  const [focusExampleId, setFocusExampleId] = useState<string | null>(null);
 
   const errorFor = useCallback(
     (code: ValidationCode): string => {
@@ -75,6 +85,16 @@ export function PlaygroundSection() {
     if (m.getLayer("prediction-outline")) m.removeLayer("prediction-outline");
     if (m.getSource("prediction")) m.removeSource("prediction");
   }, []);
+
+  const focusExample = useCallback((id: string) => {
+    const ex = examples.find((e) => e.id === id);
+    if (!ex || !map.current) return;
+    const lons = ex.geometry.coordinates[0].map((c) => c[0]);
+    const lats = ex.geometry.coordinates[0].map((c) => c[1]);
+    const cx = (Math.min(...lons) + Math.max(...lons)) / 2;
+    const cy = (Math.min(...lats) + Math.max(...lats)) / 2;
+    map.current.flyTo({ center: [cx, cy], zoom: 100, duration: 1200 });
+  }, [examples]);
 
   const validateAndSync = useCallback((): GeoJSON.Polygon | null => {
     const d = draw.current;
@@ -136,6 +156,36 @@ export function PlaygroundSection() {
       if (data.length > 0) setSelectedScenario(data[0].id);
     });
   }, []);
+
+  useEffect(() => {
+    api.getTestPredictions(50).then((data) => {
+      const items: RealExample[] = data.items.map((item) => ({
+        id: item.transition_id,
+        label: item.transition_id,
+        areaHa: item.metrics.area_true_ha,
+        geometry: item.polygon_t as GeoJSON.Polygon,
+      }));
+      setExamples(items);
+      setFocusExampleId((prev) => prev ?? items[0]?.id ?? null);
+    });
+  }, []);
+
+  useEffect(() => {
+    const container = mapContainer.current;
+    if (!container || !lenis) return;
+    const stopScroll = () => lenis.stop();
+    const startScroll = () => lenis.start();
+    container.addEventListener("mouseenter", stopScroll);
+    container.addEventListener("mouseleave", startScroll);
+    container.addEventListener("touchstart", stopScroll, { passive: true });
+    container.addEventListener("touchend", startScroll);
+    return () => {
+      container.removeEventListener("mouseenter", stopScroll);
+      container.removeEventListener("mouseleave", startScroll);
+      container.removeEventListener("touchstart", stopScroll);
+      container.removeEventListener("touchend", startScroll);
+    };
+  }, [lenis]);
 
   // Map initialisation. Empty dep array — runs once per mount. StrictMode in
   // React 19 dev double-invokes it, so we MUST be robust to that: the cleanup
@@ -225,25 +275,21 @@ export function PlaygroundSection() {
   // Other examples stay on the map for context.
   const loadExample = useCallback(
     (id: string) => {
-      const ex = EXAMPLE_FIRES.find((e) => e.id === id);
+      const ex = examples.find((e) => e.id === id);
       if (!ex || !draw.current || !map.current) return;
-      setSelectedScenario(ex.scenario_id);
+      setFocusExampleId(id);
       draw.current.deleteAll();
       draw.current.add({ type: "Feature", properties: {}, geometry: ex.geometry });
       draw.current.changeMode("simple_select");
       const poly = validateAndSync();
       if (poly) {
-        const lons = ex.geometry.coordinates[0].map((c) => c[0]);
-        const lats = ex.geometry.coordinates[0].map((c) => c[1]);
-        const cx = (Math.min(...lons) + Math.max(...lons)) / 2;
-        const cy = (Math.min(...lats) + Math.max(...lats)) / 2;
-        map.current.flyTo({ center: [cx, cy], zoom: 10.5, duration: 1400 });
+        focusExample(id);
       }
       // The picked example is now in the draw layer; mark it so we don't also
       // render it in the examples overlay (avoids visual double-painting).
       setPickedExampleIds((prev) => new Set(prev).add(id));
     },
-    [validateAndSync]
+    [examples, focusExample, validateAndSync]
   );
 
   // Examples overlay: a separate source/layer on top of the map, visible only
@@ -271,18 +317,21 @@ export function PlaygroundSection() {
 
     // Hide the example the user has currently loaded into the draw layer so
     // we don't paint it twice in different colors.
-    const features: GeoJSON.Feature[] = EXAMPLE_FIRES.filter(
+    const features: GeoJSON.Feature[] = examples.filter(
       (ex) => !pickedExampleIds.has(ex.id)
     ).map((ex) => ({
       type: "Feature",
       properties: {
         id: ex.id,
-        name: ex.name[lang as "es" | "en"],
-        area: `${ex.area_ha_estimate} ${t.playground.area_ha}`,
+        name: ex.label,
+        area: `${ex.areaHa.toFixed(1)} ${t.playground.area_ha}`,
       },
       geometry: ex.geometry,
     }));
-    if (features.length === 0) return;
+    if (features.length === 0) {
+      cleanup();
+      return;
+    }
 
     cleanup(); // start fresh
     m.addSource(SRC, {
@@ -293,13 +342,13 @@ export function PlaygroundSection() {
       id: FILL_ID,
       type: "fill",
       source: SRC,
-      paint: { "fill-color": "#5fa67a", "fill-opacity": 0.35 },
+      paint: { "fill-color": "#b42318", "fill-opacity": 0.25 },
     });
     m.addLayer({
       id: LINE_ID,
       type: "line",
       source: SRC,
-      paint: { "line-color": "#9bd1ad", "line-width": 2 },
+      paint: { "line-color": "#ff6b6b", "line-width": 2 },
     });
 
     // Pointer cursor over examples so it's obvious they're clickable.
@@ -319,27 +368,27 @@ export function PlaygroundSection() {
     m.on("mouseleave", FILL_ID, onLeave);
     m.on("click", FILL_ID, onClick);
 
-    // Fit the view so all examples are visible at once.
-    const allCoords = features.flatMap((f) =>
-      (f.geometry as GeoJSON.Polygon).coordinates[0]
-    );
-    const lons = allCoords.map((c) => c[0]);
-    const lats = allCoords.map((c) => c[1]);
-    m.fitBounds(
-      [
-        [Math.min(...lons), Math.min(...lats)],
-        [Math.max(...lons), Math.max(...lats)],
-      ],
-      { padding: 80, duration: 1200 }
-    );
-
     return () => {
       m.off("mouseenter", FILL_ID, onEnter);
       m.off("mouseleave", FILL_ID, onLeave);
       m.off("click", FILL_ID, onClick);
       cleanup();
     };
-  }, [showExamples, mapReady, lang, t, loadExample, pickedExampleIds]);
+  }, [showExamples, mapReady, lang, t, loadExample, pickedExampleIds, examples]);
+
+  useEffect(() => {
+    if (!mapReady || !focusExampleId) return;
+    focusExample(focusExampleId);
+  }, [mapReady, focusExampleId, focusExample]);
+
+  const cycleExample = useCallback(() => {
+    if (examples.length === 0) return;
+    setFocusExampleId((prev) => {
+      const idx = prev ? examples.findIndex((e) => e.id === prev) : -1;
+      const next = examples[(idx + 1) % examples.length];
+      return next?.id ?? null;
+    });
+  }, [examples]);
 
   const handlePredict = async () => {
     if (!draw.current || !selectedScenario) return;
@@ -511,6 +560,14 @@ export function PlaygroundSection() {
                 </p>
               )}
             </div>
+
+              <button
+                onClick={cycleExample}
+                disabled={examples.length === 0}
+                className="w-full bg-ember-600 hover:bg-ember-700 disabled:opacity-40 disabled:cursor-not-allowed text-black text-[11px] font-bold uppercase tracking-widest py-3 rounded-lg flex items-center justify-center gap-3 transition-all shadow-lg shadow-ember-600/20 border border-ember-500/40"
+              >
+                {t.playground.center_example}
+              </button>
 
             <AnimatePresence>
               {prediction && prediction.prediction && (
